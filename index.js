@@ -13,7 +13,12 @@ const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST"]
-  }
+  },
+  pingTimeout: 5000, // Reduce from default 20000
+  pingInterval: 10000, // Reduce from default 25000
+  upgradeTimeout: 5000, // Reduce from default 10000
+  transports: ['websocket'], // Force WebSocket transport
+  allowUpgrades: false // Prevent transport upgrades
 });
 
 app.use(cors());
