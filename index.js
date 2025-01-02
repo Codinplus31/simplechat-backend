@@ -97,29 +97,33 @@ app.get('/messages', authenticateToken, async (req, res) => {
 io.on('connection', (socket) => {
   console.log('New client connected');
 
+  socket.on('join', (userId) => {
+    console.log(`User ${userId} joined`);
+    socket.join(userId.toString());
+  });
+
   socket.on('sendMessage', async (data) => {
     try {
+      console.log('Received message:', data);
       const { senderId, recipientId, content } = data;
       const result = await pool.query(
-        'INSERT INTO live_messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
         [senderId, recipientId, content]
       );
-      console.log("sent")
-      io.to(senderId).to(recipientId).emit('message', result.rows[0]);
+      const newMessage = result.rows[0];
+      console.log('Message saved:', newMessage);
+      
+      // Emit to both sender and recipient
+      io.to(senderId.toString()).to(recipientId.toString()).emit('message', newMessage);
+      console.log('Message emitted to rooms:', senderId, recipientId);
     } catch (error) {
       console.error('Error saving message:', error);
     }
-  });
-
-  socket.on('join', (userId) => {
-    console.log("sent word")
-    socket.join(userId);
   });
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
   });
 });
-
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
