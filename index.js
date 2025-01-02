@@ -112,6 +112,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join', (userId) => {
+    console.log("sent word")
     socket.join(userId);
   });
 
