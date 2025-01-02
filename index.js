@@ -3,9 +3,9 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
-const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
 
 const app = express();
 const server = http.createServer(app);
@@ -23,7 +23,6 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -36,22 +35,26 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// User registration
 app.post('/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO chat_users (username, password) VALUES ($1, $2) RETURNING id',
+      'INSERT INTO chat_users (username, password) VALUES ($1, $2) RETURNING id, username',
       [username, hashedPassword]
     );
-    res.status(201).json({ id: result.rows[0].id, username });
+    const user = result.rows[0];
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
+    res.status(201).json({ token, user });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    if (error.code === '23505') {
+      res.status(400).json({ error: 'Username already exists' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 
-// User login
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -60,42 +63,55 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
     const user = result.rows[0];
-    if (await bcrypt.compare(password, user.password)) {
-      const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
-      res.json({ token });
-    } else {
-      res.status(401).json({ error: 'Invalid username or password' });
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid username or password' });
     }
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET);
+    res.json({ token, user: { id: user.id, username: user.username } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get messages
-app.get('/messages', authenticateToken, async (req, res) => {
+app.get('/users', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM live_messages ORDER BY created_at DESC LIMIT 50');
+    const result = await pool.query('SELECT id, username FROM chat_users WHERE id != $1', [req.user.id]);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Socket.io connection
+app.get('/messages', authenticateToken, async (req, res) => {
+  try {
+    const { recipient_id } = req.query;
+    let query = 'SELECT * FROM live_messages WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1) ORDER BY created_at DESC LIMIT 50';
+    const result = await pool.query(query, [req.user.id, recipient_id]);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 io.on('connection', (socket) => {
   console.log('New client connected');
 
   socket.on('sendMessage', async (data) => {
     try {
-      const { userId, message } = data;
+      const { senderId, recipientId, content } = data;
       const result = await pool.query(
-        'INSERT INTO live_messages (user_id, content) VALUES ($1, $2) RETURNING *',
-        [userId, message]
+        'INSERT INTO messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
+        [senderId, recipientId, content]
       );
-      io.emit('message', result.rows[0]);
+      io.to(senderId).to(recipientId).emit('message', result.rows[0]);
     } catch (error) {
       console.error('Error saving message:', error);
     }
+  });
+
+  socket.on('join', (userId) => {
+    socket.join(userId);
   });
 
   socket.on('disconnect', () => {
@@ -105,4 +121,3 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
