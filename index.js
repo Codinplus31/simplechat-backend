@@ -14,11 +14,12 @@ const io = socketIo(server, {
     origin: process.env.FRONTEND_URL,
     methods: ["GET", "POST"]
   },
-  pingTimeout: 5000, // Reduce from default 20000
+ /* pingTimeout: 5000, // Reduce from default 20000
   pingInterval: 10000, // Reduce from default 25000
   upgradeTimeout: 5000, // Reduce from default 10000
   transports: ['websocket'], // Force WebSocket transport
-  allowUpgrades: false // Prevent transport upgrades
+  allowUpgrades: false */ 
+  // Prevent transport upgrades
 });
 
 app.use(cors());
@@ -111,7 +112,7 @@ io.on('connection', (socket) => {
     try {
       const { senderId, recipientId, content } = data;
       const result = await pool.query(
-        'INSERT INTO live_messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
         [senderId, recipientId, content]
       );
       const newMessage = result.rows[0];
