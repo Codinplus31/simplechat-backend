@@ -98,7 +98,7 @@ io.on('connection', (socket) => {
   console.log('New client connected');
 
   socket.on('join', (userId) => {
-    console.log(`User ${userId} joined`);
+  //  console.log(`User ${userId} joined`);
     socket.join(userId.toString());
   });
 
@@ -110,7 +110,7 @@ io.on('connection', (socket) => {
         [senderId, recipientId, content]
       );
       const newMessage = result.rows[0];
-      console.log('Message saved:');
+     // console.log('Message saved:');
       
       // Emit to both sender and recipient
       io.to(senderId.toString()).to(recipientId.toString()).emit('message', newMessage);
