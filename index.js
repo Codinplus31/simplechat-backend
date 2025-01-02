@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
     try {
       const { senderId, recipientId, content } = data;
       const result = await pool.query(
-        'INSERT INTO messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO live_messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
         [senderId, recipientId, content]
       );
       io.to(senderId).to(recipientId).emit('message', result.rows[0]);
