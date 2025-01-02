@@ -104,6 +104,7 @@ io.on('connection', (socket) => {
         'INSERT INTO live_messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
         [senderId, recipientId, content]
       );
+      console.log("sent")
       io.to(senderId).to(recipientId).emit('message', result.rows[0]);
     } catch (error) {
       console.error('Error saving message:', error);
