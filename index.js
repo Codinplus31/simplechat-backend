@@ -110,10 +110,10 @@ io.on('connection', (socket) => {
         [senderId, recipientId, content]
       );
       const newMessage = result.rows[0];
-      console.log('Message saved:', newMessage);
+      console.log('Message saved:');
       
       // Emit to both sender and recipient
-      io.to(senderId).to(recipientId).emit('message', newMessage);
+      io.to(senderId.toString()).to(recipientId.toString()).emit('message', newMessage);
       //console.log('Message emitted to rooms:', senderId, recipientId);
     } catch (error) {
       console.error('Error saving message:', error);
