@@ -104,7 +104,6 @@ io.on('connection', (socket) => {
 
   socket.on('sendMessage', async (data) => {
     try {
-      console.log('Received message:', data);
       const { senderId, recipientId, content } = data;
       const result = await pool.query(
         'INSERT INTO live_messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
@@ -115,7 +114,7 @@ io.on('connection', (socket) => {
       
       // Emit to both sender and recipient
       io.to(senderId.toString()).to(recipientId.toString()).emit('message', newMessage);
-      console.log('Message emitted to rooms:', senderId, recipientId);
+      //console.log('Message emitted to rooms:', senderId, recipientId);
     } catch (error) {
       console.error('Error saving message:', error);
     }
