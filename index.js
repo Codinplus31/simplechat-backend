@@ -107,7 +107,7 @@ io.on('connection', (socket) => {
       console.log('Received message:', data);
       const { senderId, recipientId, content } = data;
       const result = await pool.query(
-        'INSERT INTO messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO messages (content, sender_id, recipient_id) VALUES ($1, $2, $3) RETURNING *',
         [senderId, recipientId, content]
       );
       const newMessage = result.rows[0];
