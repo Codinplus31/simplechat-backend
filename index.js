@@ -113,7 +113,7 @@ io.on('connection', (socket) => {
       console.log('Message saved:', newMessage);
       
       // Emit to both sender and recipient
-      io.to(senderId.toString()).to(recipientId.toString()).emit('message', newMessage);
+      io.to(senderId).to(recipientId).emit('message', newMessage);
       //console.log('Message emitted to rooms:', senderId, recipientId);
     } catch (error) {
       console.error('Error saving message:', error);
