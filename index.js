@@ -108,7 +108,7 @@ app.get('/users/:id', authenticateToken, async (req, res) => {
 app.get('/messages', authenticateToken, async (req, res) => {
   try {
     const { recipient_id } = req.query;
-    let query = 'SELECT * FROM live_messages WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1) ORDER BY created_at DESC LIMIT 50';
+    let query = 'SELECT * FROM live_messages WHERE (sender_id = $1 AND recipient_id = $2) OR (sender_id = $2 AND recipient_id = $1) ORDER BY created_at ASC LIMIT 50';
     const result = await pool.query(query, [req.user.id, recipient_id]);
     res.json(result.rows);
   } catch (error) {
