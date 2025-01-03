@@ -115,14 +115,64 @@ app.get('/messages', authenticateToken, async (req, res) => {
   }
 });
 
+const onlineUsers = new Map();
+const typingUsers = new Map();
+
 io.on('connection', (socket) => {
   console.log('New client connected');
 
-  socket.on('join', (userId) => {
-  //  console.log(`User ${userId} joined`);
-    socket.join(userId);
+  socket.on('user_connected', (userId) => {
+    onlineUsers.set(userId, socket.id);
+    socket.join(userId.toString());
+    io.emit('user_status', {
+      userId,
+      status: 'online'
+    });
   });
 
+  socket.on('start_typing', ({ userId, recipientId }) => {
+    const typingKey = `${userId}-${recipientId}`;
+    typingUsers.set(typingKey, true);
+    io.to(recipientId.toString()).emit('typing_status', {
+      userId,
+      isTyping: true
+    });
+  });
+
+  socket.on('stop_typing', ({ userId, recipientId }) => {
+    const typingKey = `${userId}-${recipientId}`;
+    typingUsers.delete(typingKey);
+    io.to(recipientId.toString()).emit('typing_status', {
+      userId,
+      isTyping: false
+    });
+  });
+
+  socket.on('disconnect', () => {
+    let disconnectedUserId = null;
+    for (const [userId, socketId] of onlineUsers.entries()) {
+      if (socketId === socket.id) {
+        disconnectedUserId = userId;
+        break;
+      }
+    }
+
+    if (disconnectedUserId) {
+      onlineUsers.delete(disconnectedUserId);
+      // Clear typing status for disconnected user
+      for (const [key] of typingUsers.entries()) {
+        if (key.startsWith(disconnectedUserId)) {
+          typingUsers.delete(key);
+        }
+      }
+      io.emit('user_status', {
+        userId: disconnectedUserId,
+        status: 'offline'
+      });
+    }
+  });
+
+  // Existing message handling code...
   socket.on('sendMessage', async (data) => {
     try {
       const { senderId, recipientId, content } = data;
@@ -130,19 +180,21 @@ io.on('connection', (socket) => {
         'INSERT INTO live_messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
         [senderId, recipientId, content]
       );
-      const newMessage = result.rows[0];
-     // console.log('Message saved:');
       
-      // Emit to both sender and recipient
-      io.to(senderId).to(recipientId).emit('message', newMessage);
-      //console.log('Message emitted to rooms:', senderId, recipientId);
+      // Clear typing status when message is sent
+      const typingKey = `${senderId}-${recipientId}`;
+      typingUsers.delete(typingKey);
+      io.to(recipientId.toString()).emit('typing_status', {
+        userId: senderId,
+        isTyping: false
+      });
+
+      socket.to(recipientId.toString()).emit('message', result.rows[0]);
+      socket.emit('message', result.rows[0]);
     } catch (error) {
       console.error('Error saving message:', error);
+      socket.emit('error', { message: 'Failed to send message' });
     }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
   });
 });
 const PORT = process.env.PORT || 3001;
