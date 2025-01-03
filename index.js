@@ -118,7 +118,7 @@ app.get('/messages', authenticateToken, async (req, res) => {
 
 
 // Track online users, active chats, and typing status
-const onlineUsers = new Set();
+const onlineUsers = [];
 const activeChats = new Map();
 const typingUsers = new Map();
 /*
@@ -239,7 +239,7 @@ io.on('connection', (socket) => {
 
   socket.on('user_connected', (userId) => {
     console.log(`User connected: ${userId}`);
-    onlineUsers.add({userId, socketId: socket.id});
+    onlineUsers.push({userId, socketId: socket.id});
     console.log(onlineUsers)
     socket.join(userId.toString());
     io.emit('user_status_change', { userId, status: 'online', socketId: socket.id });
@@ -252,7 +252,8 @@ io.on('connection', (socket) => {
     console.log(userId)
     
     if (userId) {
-      onlineUsers.delete({userId, socketId: socket.id});
+   //   onlineUsers.delete({userId, socketId: socket.id});
+      onlineUsers = userId;
       console.log(onlineUsers)
       io.emit('user_status_change', { userId, status: 'offline', socketId: socket.id });
     }
