@@ -80,14 +80,29 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.get('/users', authenticateToken, async (req, res) => {
+/*app.get('/users', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username FROM chat_users WHERE id != $1', [req.user.id]);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+}); */
+
+app.get('/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username FROM chat_users WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
+
+
+
 
 app.get('/messages', authenticateToken, async (req, res) => {
   try {
