@@ -232,7 +232,7 @@ io.on('connection', (socket) => {
     }
   });
 }); */
-const onlineUsers = new Set();
+//const onlineUsers = new Set();
 
 io.on('connection', (socket) => {
   console.log('New client connected');
