@@ -115,7 +115,10 @@ app.get('/messages', authenticateToken, async (req, res) => {
   }
 });
 
+
+// Track online users, active chats, and typing status
 const onlineUsers = new Map();
+const activeChats = new Map();
 const typingUsers = new Map();
 
 io.on('connection', (socket) => {
@@ -124,24 +127,43 @@ io.on('connection', (socket) => {
   socket.on('user_connected', (userId) => {
     onlineUsers.set(userId, socket.id);
     socket.join(userId.toString());
-    io.emit('user_status', {
-      userId,
-      status: 'online'
-    });
+    updateUserStatus(userId);
+  });
+
+  socket.on('enter_chat', ({ userId, recipientId }) => {
+    const chatId = getChatId(userId, recipientId);
+    if (!activeChats.has(chatId)) {
+      activeChats.set(chatId, new Set());
+    }
+    activeChats.get(chatId).add(userId);
+    updateChatStatus(userId, recipientId);
+  });
+
+  socket.on('leave_chat', ({ userId, recipientId }) => {
+    const chatId = getChatId(userId, recipientId);
+    if (activeChats.has(chatId)) {
+      activeChats.get(chatId).delete(userId);
+      if (activeChats.get(chatId).size === 0) {
+        activeChats.delete(chatId);
+      }
+    }
+    updateChatStatus(userId, recipientId);
   });
 
   socket.on('start_typing', ({ userId, recipientId }) => {
-    const typingKey = `${userId}-${recipientId}`;
-    typingUsers.set(typingKey, true);
-    io.to(recipientId.toString()).emit('typing_status', {
-      userId,
-      isTyping: true
-    });
+    const chatId = getChatId(userId, recipientId);
+    if (activeChats.has(chatId) && activeChats.get(chatId).size === 2) {
+      typingUsers.set(chatId, userId);
+      io.to(recipientId.toString()).emit('typing_status', {
+        userId,
+        isTyping: true
+      });
+    }
   });
 
   socket.on('stop_typing', ({ userId, recipientId }) => {
-    const typingKey = `${userId}-${recipientId}`;
-    typingUsers.delete(typingKey);
+    const chatId = getChatId(userId, recipientId);
+    typingUsers.delete(chatId);
     io.to(recipientId.toString()).emit('typing_status', {
       userId,
       isTyping: false
@@ -159,16 +181,29 @@ io.on('connection', (socket) => {
 
     if (disconnectedUserId) {
       onlineUsers.delete(disconnectedUserId);
-      // Clear typing status for disconnected user
-      for (const [key] of typingUsers.entries()) {
-        if (key.startsWith(disconnectedUserId)) {
-          typingUsers.delete(key);
+      for (const [chatId, users] of activeChats.entries()) {
+        if (users.has(disconnectedUserId)) {
+          users.delete(disconnectedUserId);
+          if (users.size === 0) {
+            activeChats.delete(chatId);
+          } else {
+            const recipientId = Array.from(users)[0];
+            updateChatStatus(disconnectedUserId, recipientId);
+          }
         }
       }
-      io.emit('user_status', {
-        userId: disconnectedUserId,
-        status: 'offline'
-      });
+      // Clear typing status for disconnected user
+      for (const [chatId, typingUserId] of typingUsers.entries()) {
+        if (typingUserId === disconnectedUserId) {
+          typingUsers.delete(chatId);
+          const [user1, user2] = chatId.split('-');
+          const recipientId = user1 === disconnectedUserId ? user2 : user1;
+          io.to(recipientId).emit('typing_status', {
+            userId: disconnectedUserId,
+            isTyping: false
+          });
+        }
+      }
     }
   });
 
@@ -181,9 +216,8 @@ io.on('connection', (socket) => {
         [senderId, recipientId, content]
       );
       
-      // Clear typing status when message is sent
-      const typingKey = `${senderId}-${recipientId}`;
-      typingUsers.delete(typingKey);
+      const chatId = getChatId(senderId, recipientId);
+      typingUsers.delete(chatId);
       io.to(recipientId.toString()).emit('typing_status', {
         userId: senderId,
         isTyping: false
@@ -197,5 +231,35 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+function getChatId(userId1, userId2) {
+  return [userId1, userId2].sort().join('-');
+}
+
+function updateUserStatus(userId) {
+  for (const [chatId, users] of activeChats.entries()) {
+    if (users.has(userId)) {
+      const recipientId = Array.from(users).find(id => id !== userId);
+      updateChatStatus(userId, recipientId);
+    }
+  }
+}
+
+function updateChatStatus(userId, recipientId) {
+  const chatId = getChatId(userId, recipientId);
+  const isActive = activeChats.has(chatId) && activeChats.get(chatId).size === 2;
+  io.to(userId.toString()).emit('chat_status', {
+    recipientId,
+    isActive
+  });
+  io.to(recipientId.toString()).emit('chat_status', {
+    recipientId: userId,
+    isActive
+  });
+}
+
+// ... rest of the server code ...
+
+
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
