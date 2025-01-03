@@ -240,6 +240,7 @@ io.on('connection', (socket) => {
   socket.on('user_connected', (userId) => {
     console.log(`User connected: ${userId}`);
     onlineUsers.add(userId);
+    console.log(onlineUsers)
     socket.join(userId.toString());
     io.emit('user_status_change', { userId, status: 'online' });
   });
