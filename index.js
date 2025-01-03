@@ -239,7 +239,7 @@ io.on('connection', (socket) => {
 
   socket.on('user_connected', (userId) => {
     console.log(`User connected: ${userId}`);
-    onlineUsers.add(userId);
+    onlineUsers.set(userId);
     socket.join(userId.toString());
     io.emit('user_status_change', { userId, status: 'online' });
   });
