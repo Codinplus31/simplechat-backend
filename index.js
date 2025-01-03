@@ -249,8 +249,10 @@ io.on('connection', (socket) => {
     console.log('Client disconnected');
     const userId = Array.from(onlineUsers).find(id => socket.rooms.has(id.toString()));
    console.log(userId)
+    
     if (userId) {
       onlineUsers.delete(userId);
+      console.log(onlineUsers)
       io.emit('user_status_change', { userId, status: 'offline' });
     }
   });
@@ -281,6 +283,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
+  console.log(onlineUsers)
 });
 
 
