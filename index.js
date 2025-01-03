@@ -121,7 +121,7 @@ app.get('/messages', authenticateToken, async (req, res) => {
 const onlineUsers = new Map();
 const activeChats = new Map();
 const typingUsers = new Map();
-
+/*
 io.on('connection', (socket) => {
   console.log('New client connected');
 
@@ -231,7 +231,56 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
+}); */
+const onlineUsers = new Set();
+
+io.on('connection', (socket) => {
+  console.log('New client connected');
+
+  socket.on('user_connected', (userId) => {
+    console.log(`User connected: ${userId}`);
+    onlineUsers.add(userId);
+    socket.join(userId.toString());
+    io.emit('user_status_change', { userId, status: 'online' });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+    const userId = Array.from(onlineUsers).find(id => socket.rooms.has(id.toString()));
+    if (userId) {
+      onlineUsers.delete(userId);
+      io.emit('user_status_change', { userId, status: 'offline' });
+    }
+  });
+
+  socket.on('start_typing', ({ userId, recipientId }) => {
+    console.log(`User ${userId} started typing to ${recipientId}`);
+    socket.to(recipientId.toString()).emit('typing_status', { userId, isTyping: true });
+  });
+
+  socket.on('stop_typing', ({ userId, recipientId }) => {
+    console.log(`User ${userId} stopped typing to ${recipientId}`);
+    socket.to(recipientId.toString()).emit('typing_status', { userId, isTyping: false });
+  });
+
+  socket.on('sendMessage', async (data) => {
+    try {
+      const { senderId, recipientId, content } = data;
+      console.log(`Message from ${senderId} to ${recipientId}: ${content}`);
+      const result = await pool.query(
+        'INSERT INTO messages (sender_id, recipient_id, content) VALUES ($1, $2, $3) RETURNING *',
+        [senderId, recipientId, content]
+      );
+      
+      io.to(recipientId.toString()).emit('message', result.rows[0]);
+      socket.emit('message', result.rows[0]);
+    } catch (error) {
+      console.error('Error saving message:', error);
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
 });
+
 
 function getChatId(userId1, userId2) {
   return [userId1, userId2].sort().join('-');
@@ -258,6 +307,7 @@ function updateChatStatus(userId, recipientId) {
     isActive
   });
 }
+
 
 // ... rest of the server code ...
 
