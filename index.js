@@ -239,21 +239,22 @@ io.on('connection', (socket) => {
 
   socket.on('user_connected', (userId) => {
     console.log(`User connected: ${userId}`);
-    onlineUsers.add(userId);
+    onlineUsers.add({userId, socketId: socket.id});
     console.log(onlineUsers)
     socket.join(userId.toString());
-    io.emit('user_status_change', { userId, status: 'online' });
+    io.emit('user_status_change', { userId, status: 'online', socketId: socket.id });
   });
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
-    const userId = Array.from(onlineUsers).find(id => socket.rooms.has(id.toString()));
-   console.log(userId)
+   // const userId = Array.from(onlineUsers).find(id => socket.rooms.has(id.toString()));
+ const userId = onlineUsers.filter((user) => user.socketId !== socket.id)
+    console.log(userId)
     
     if (userId) {
-      onlineUsers.delete(userId);
+      onlineUsers.delete({userId, socketId: socket.id});
       console.log(onlineUsers)
-      io.emit('user_status_change', { userId, status: 'offline' });
+      io.emit('user_status_change', { userId, status: 'offline', socketId: socket.id });
     }
   });
 
