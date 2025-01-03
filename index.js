@@ -118,7 +118,7 @@ app.get('/messages', authenticateToken, async (req, res) => {
 
 
 // Track online users, active chats, and typing status
-const onlineUsers = [];
+var onlineUsers = [];
 const activeChats = new Map();
 const typingUsers = new Map();
 /*
