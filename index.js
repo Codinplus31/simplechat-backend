@@ -248,6 +248,7 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client disconnected');
     const userId = Array.from(onlineUsers).find(id => socket.rooms.has(id.toString()));
+   console.log(userId)
     if (userId) {
       onlineUsers.delete(userId);
       io.emit('user_status_change', { userId, status: 'offline' });
