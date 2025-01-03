@@ -239,10 +239,10 @@ io.on('connection', (socket) => {
 
   socket.on('user_connected', (userId) => {
     console.log(`User connected: ${userId}`);
-    onlineUsers.push({userId, socketId: socket.id});
-    console.log(onlineUsers)
+    onlineUsers.push({userId, status: "online", socketId: socket.id});
+    console.log(onlineUsers,"user")
     socket.join(userId.toString());
-    io.emit('user_status_change', { userId, status: 'online', socketId: socket.id });
+    io.emit('user_status_change', onlineUsers);
   });
 
   socket.on('disconnect', () => {
@@ -254,8 +254,8 @@ io.on('connection', (socket) => {
     if (userId) {
    //   onlineUsers.delete({userId, socketId: socket.id});
       onlineUsers = userId;
-      console.log(onlineUsers)
-      io.emit('user_status_change', { userId, status: 'offline', socketId: socket.id });
+      console.log(onlineUsers, "dis")
+      io.emit('user_status_change', onlineUsers);
     }
   });
 
